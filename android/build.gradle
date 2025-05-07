@@ -1,13 +1,12 @@
 buildscript {
     repositories {
-        google() // For Google Maven repository (required for Firebase)
-        mavenCentral() // For other dependencies
+        google()
+        mavenCentral()
     }
     dependencies {
-        // Add the Google Services classpath
-        classpath 'com.google.gms:google-services:4.3.15' // Latest version at the time of writing
-        classpath 'com.android.tools.build:gradle:8.1.1' // Ensure compatibility with your project
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10" // For Kotlin support
+        classpath 'com.android.tools.build:gradle:8.2.1'
+        classpath 'com.google.gms:google-services:4.3.15'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
     }
 }
 

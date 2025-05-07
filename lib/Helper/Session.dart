@@ -49,8 +49,9 @@ Locale _locale(String languageCode) {
 }
 
 String? getTranslated(BuildContext context, String key) {
-  return AppLocalization.of(context)!.translate(key) ?? key;
+  return AppLocalization.of(context)?.translate(key) ?? key;
 }
+
 
 String getToken() {
   return HiveUtils.getJWT() ?? "";

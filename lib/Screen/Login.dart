@@ -253,9 +253,10 @@ Widget setCountryCodeAndMobile() {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // ===== COUNTRY CODE PICKER =====
-        Container(
-          
-          padding: const EdgeInsets.only(left: 2),
+        Theme(
+          data: Theme.of(context).copyWith(
+            dialogBackgroundColor: Theme.of(context).dialogBackgroundColor,
+          ),
           child: CountryCodePicker(
             onChanged: (countryCode) {
               setState(() {
@@ -268,11 +269,19 @@ Widget setCountryCodeAndMobile() {
             showDropDownButton: true,
             showOnlyCountryWhenClosed: false,
             alignLeft: false,
-             flagWidth: 16,
+            flagWidth: 16,
             padding: EdgeInsets.zero,
             textStyle: TextStyle(
               color: Theme.of(context).colorScheme.fontColor,
               fontSize: 12,
+            ),
+            dialogTextStyle: TextStyle(
+              color: colors.darkColor,
+              fontSize: 14,
+            ),
+            searchStyle: TextStyle(
+              color: colors.darkColor,
+              fontSize: 14,
             ),
           ),
         ),
@@ -297,7 +306,6 @@ Widget setCountryCodeAndMobile() {
             decoration: InputDecoration(
               border: InputBorder.none,
               hintText: getTranslated(context, 'ENTER_MOBILE_NUMBER') ?? 'Enter mobile number',
-
               hintStyle: TextStyle(
                 color: Theme.of(context).colorScheme.fontColor.withOpacity(0.6),
                 fontSize: 14,

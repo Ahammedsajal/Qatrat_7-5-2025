@@ -19,7 +19,7 @@ import '../utils/blured_router.dart';
 import '../Provider/SettingProvider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:customer/Screen/SignInUpAcc.dart';
-
+import '../app/app_Localization.dart';
 
 class Splash extends StatefulWidget {
   const Splash({super.key});
@@ -135,12 +135,35 @@ class _SplashScreen extends State<Splash> {
 
   startTime() async {
     const duration = Duration(seconds: 2);
+      await loadTranslations(); 
     return Timer(duration, navigationPage);
   }
+  
+Future<void> loadTranslations() async {
+  final List<String> languages = ['en', 'ar']; // or any supported ones
 
-  Future<void> navigationPage() async {
-  Navigator.pushReplacementNamed(context, Routers.dashboardScreen);
+  for (String lang in languages) {
+    final Locale locale = Locale(lang);
+    final AppLocalization localization = AppLocalization(locale);
+    await localization.load(); // ✅ Stores both languages now
+  }
 }
+
+
+
+ Future<void> navigationPage() async {
+  // 👇 Get the deep link route name
+  final initialRoute = ModalRoute.of(context)?.settings.name;
+
+  if (initialRoute != null && initialRoute != Routers.splash) {
+    // 👇 Use the route from deep link
+    Navigator.pushReplacementNamed(context, initialRoute);
+  } else {
+    // 👇 Fallback to default dashboard
+    Navigator.pushReplacementNamed(context, Routers.dashboardScreen);
+  }
+}
+
 
  
 }

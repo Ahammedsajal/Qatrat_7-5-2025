@@ -226,75 +226,63 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final themeNotifier = Provider.of<ThemeNotifier>(context);
-    if (_locale == null) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    } else {
-        return SafeArea(
-      // Set which edges you want the safe area to apply:
-      top: false,      // Leave the top alone if you want your app bar to use space under the status bar
-      left: false,
-      right: false,
-      bottom: true,
-     child: MaterialApp(
-        locale: _locale,
-        supportedLocales: [...Languages().codes()],
-        onGenerateRoute: Routers.onGenerateRouted,
-        initialRoute: Routers.splash,
-        localizationsDelegates: const [
-          AppLocalization.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        localeResolutionCallback: (locale, supportedLocales) {
-          for (final supportedLocale in supportedLocales) {
-            if (supportedLocale.languageCode == locale?.languageCode &&
-                supportedLocale.countryCode == locale?.countryCode) {
-              return supportedLocale;
-            }
+ @override
+Widget build(BuildContext context) {
+  final themeNotifier = Provider.of<ThemeNotifier>(context);
+  if (_locale == null) {
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  } else {
+    return MaterialApp(
+      locale: _locale,
+      supportedLocales: [...Languages().codes()],
+      onGenerateRoute: Routers.onGenerateRouted,
+      initialRoute: Routers.splash,
+      localizationsDelegates: const [
+        AppLocalization.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      localeResolutionCallback: (locale, supportedLocales) {
+        for (final supportedLocale in supportedLocales) {
+          if (supportedLocale.languageCode == locale?.languageCode &&
+              supportedLocale.countryCode == locale?.countryCode) {
+            return supportedLocale;
           }
-          return supportedLocales.first;
-        },
-        navigatorKey: navigatorKey,
-        title: appName,
-        theme: lightTheme,
-        debugShowCheckedModeBanner: false,
-        darkTheme: darkTheme,
-        themeMode: themeNotifier.getThemeMode(),
-        // Wrap all routes with SafeArea so that the app content is never hidden
-        // behind the system UI (status bar and navigation bar).
-        builder: (context, child) {
-  return Stack(
-    children: [
-      SafeArea(
-        bottom: true,
-        top: false,
-        left: false,
-        right: false,
-        child: child!,
-      ),
-      Positioned(
-  bottom: MediaQuery.of(context).padding.bottom + 66, // adjust 16 as needed
-  right: 16,
-  child: FloatingActionButton(
-    onPressed: openWhatsAppChat,
-    backgroundColor: Colors.green,
-    child: Icon(FontAwesomeIcons.whatsapp, size: 30),
-  ),
-),
+        }
+        return supportedLocales.first;
+      },
+      navigatorKey: navigatorKey,
+      title: appName,
+      theme: lightTheme,
+      debugShowCheckedModeBanner: false,
+      darkTheme: darkTheme,
+      themeMode: themeNotifier.getThemeMode(),
+      builder: (context, child) {
+        final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+        final theme = Theme.of(context);
 
-      
-    ],
-  );
-},
+        return Stack(
+          children: [
+            // Remove SafeArea entirely or set bottom: false
+            child!, // Let the content extend to the bottom
 
-
-      ));
-    }
+            // WhatsApp Floating Button
+            Positioned(
+              bottom: bottomInset + 66, // Adjust position as needed
+              right: 16,
+              child: FloatingActionButton(
+                onPressed: openWhatsAppChat,
+                backgroundColor: Colors.green,
+                child: const Icon(FontAwesomeIcons.whatsapp, size: 30),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 void openWhatsAppChat() async {
@@ -312,6 +300,7 @@ void openWhatsAppChat() async {
       throw 'Could not launch WhatsApp';
     }
   }
+}
 }
 class MyHttpOverrides extends HttpOverrides {
   @override

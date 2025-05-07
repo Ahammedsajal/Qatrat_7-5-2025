@@ -393,7 +393,7 @@ class StatePayment extends State<Payment> with TickerProviderStateMixin {
 
   // Date selection widget
   Widget dateCell(int index) {
-    final DateTime today = DateTime.parse(startingDate!);
+final DateTime today = DateTime.parse(startingDate!).add(const Duration(days: 2));
     return InkWell(
       child: Container(
         decoration: BoxDecoration(
@@ -508,7 +508,7 @@ class StatePayment extends State<Payment> with TickerProviderStateMixin {
               if (timeSlotList.isNotEmpty) {
                 for (int i = 0; i < timeSlotList.length; i++) {
                   if (selectedDate != null) {
-                    final DateTime today = DateTime.parse(startingDate!);
+final DateTime today = DateTime.parse(startingDate!).add(const Duration(days: 2));
                     final DateTime date = today.add(Duration(days: selectedDate!));
                     final DateTime cur = DateTime.now();
                     final DateTime tdDate = DateTime(cur.year, cur.month, cur.day);

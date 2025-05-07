@@ -97,6 +97,10 @@ static const String PRIVACY_POLICY = 'privacy_policy';
 case privacyPolicyScreen:
   return PrivacyScreen.route(routeSettings);
 
+case '/open-app':
+  return MaterialPageRoute(
+    builder: (_) => Dashboard(), // or any home screen
+  );
 
 case aboutUsScreen:
   return MaterialPageRoute(

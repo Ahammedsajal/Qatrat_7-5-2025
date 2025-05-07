@@ -401,9 +401,8 @@ AppBar myOrdersAppBar(BuildContext context, String title) {
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           Text(
-                            "$activeStatus on $date"
-                                .replaceAll("_", ' ')
-                                .toTitleCase(),
+  "${getTranslated(context, 'ORDER_${activeStatus?.toUpperCase()}') ?? activeStatus} ${getTranslated(context, 'on')} $date",
+
                             style: Theme.of(context)
                                 .textTheme
                                 .titleSmall!

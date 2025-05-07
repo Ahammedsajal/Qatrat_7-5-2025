@@ -4,6 +4,7 @@
   import 'package:collection/src/iterable_extensions.dart';
   import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';  
   // At the top of Cart.dart
 import 'package:customer/Screen/Payment.dart' hide isTimeSlot;
 import 'package:customer/Screen/SkipCashWebView.dart';
@@ -30,7 +31,6 @@ import 'package:logging/logging.dart';
   import '../Order_Success.dart';
   import 'package:mime/mime.dart';
   import 'package:my_fatoorah/my_fatoorah.dart';
-  import 'package:paytm_allinonesdk/paytm_allinonesdk.dart';
   import 'package:provider/provider.dart';
   import 'package:url_launcher/url_launcher.dart';
   import '../../Helper/ApiBaseHelper.dart';
@@ -220,12 +220,16 @@ import '../../utils/Hive/hive_utils.dart';
       prePaidDeliverChargesOfShipRocket = 0.0;
       isLocalDelCharge = null;
       shipRocketDeliverableDate = '';
+      selectedMosque = null;
+  context.read<MosqueProvider>().setSelectedMosque(null);
     }
 
     @override
     void dispose() {
       buttonController!.dispose();
       promoCodeController.dispose();
+          mobileController.dispose();
+
       emailController.dispose();
       _scrollControllerOnCartItems.removeListener(() {});
       _scrollControllerOnSaveForLaterItems.removeListener(() {});
@@ -330,66 +334,94 @@ import '../../utils/Hive/hive_utils.dart';
       }
     }
 
-    @override
-    Widget build(BuildContext context) {
-      deviceHeight = MediaQuery.of(context).size.height;
-      deviceWidth = MediaQuery.of(context).size.width;
-      return SafeArea(
-        bottom: Platform.isAndroid ? false : true,
-        child: Scaffold(
-          appBar: widget.fromBottom
-              ? null
-              : getSimpleAppBar(getTranslated(context, 'CART')!, context),
-          body: Consumer<UserProvider>(
-            builder: (context, data, child) {
-              return _isNetworkAvailable
-                  ? context.read<UserProvider>().userId != ""
-                      ? Stack(
-                          children: <Widget>[
-                            _showContent(context),
-                            Selector<CartProvider, bool>(
-                              builder: (context, data, child) {
-                                return showCircularProgress(
-                                  context,
-                                  data,
-                                  Theme.of(context).colorScheme.primarytheme,
-                                );
-                              },
-                              selector: (_, provider) => provider.isProgress,
-                            ),
-                          ],
-                        )
-                      : Stack(
-                          children: <Widget>[
-                            _showContent1(context),
-                            Selector<CartProvider, bool>(
-                              builder: (context, data, child) {
-                                return showCircularProgress(
-                                  context,
-                                  data,
-                                  Theme.of(context).colorScheme.primarytheme,
-                                );
-                              },
-                              selector: (_, provider) => provider.isProgress,
-                            ),
-                          ],
-                        )
-                  : noInternet(
-                      context,
-                      buttonController: buttonController,
-                      buttonSqueezeanimation: buttonSqueezeanimation,
-                      onButtonClicked: (internetAvailable) {
-                        _isNetworkAvailable = internetAvailable;
-                        callApi();
-                        setState(() {});
-                      },
-                      onNetworkNavigationWidget: super.widget,
-                    );
-            },
+    
+@override
+Widget build(BuildContext context) {
+  deviceHeight = MediaQuery.of(context).size.height;
+  deviceWidth = MediaQuery.of(context).size.width;
+
+  return Scaffold(
+    appBar: widget.fromBottom
+        ? null
+        : getSimpleAppBar(getTranslated(context, 'CART')!, context),
+    backgroundColor: Theme.of(context).colorScheme.lightWhite,
+
+    body: Column(
+      children: [
+        // ▸ Remove top black bar if no AppBar
+        if (widget.fromBottom)
+          Container(
+            height: MediaQuery.of(context).padding.top,
+            color: Theme.of(context).scaffoldBackgroundColor,
+          ),
+
+        // ▸ Main content wrapped in SafeArea
+        Expanded(
+          child: SafeArea(
+            top: !widget.fromBottom,
+            bottom: false, // we'll handle bottom manually
+            child: Consumer<UserProvider>(
+              builder: (context, data, child) {
+                return _isNetworkAvailable
+                    ? context.read<UserProvider>().userId != ""
+                        ? Stack(
+                            children: [
+                              _showContent(context),
+                              Selector<CartProvider, bool>(
+                                builder: (context, data, child) {
+                                  return showCircularProgress(
+                                    context,
+                                    data,
+                                    Theme.of(context).colorScheme.primarytheme,
+                                  );
+                                },
+                                selector: (_, provider) => provider.isProgress,
+                              ),
+                            ],
+                          )
+                        : Stack(
+                            children: [
+                              _showContent1(context),
+                              Selector<CartProvider, bool>(
+                                builder: (context, data, child) {
+                                  return showCircularProgress(
+                                    context,
+                                    data,
+                                    Theme.of(context).colorScheme.primarytheme,
+                                  );
+                                },
+                                selector: (_, provider) => provider.isProgress,
+                              ),
+                            ],
+                          )
+                    : noInternet(
+                        context,
+                        buttonController: buttonController,
+                        buttonSqueezeanimation: buttonSqueezeanimation,
+                        onButtonClicked: (internetAvailable) {
+                          _isNetworkAvailable = internetAvailable;
+                          callApi();
+                          setState(() {});
+                        },
+                        onNetworkNavigationWidget: super.widget,
+                      );
+              },
+            ),
           ),
         ),
-      );
-    }
+
+        // ▸ Remove bottom black bar if fromBottom (e.g. modal)
+        if (widget.fromBottom)
+          Container(
+            height: MediaQuery.of(context).padding.bottom,
+            color: Theme.of(context).scaffoldBackgroundColor,
+          ),
+      ],
+    ),
+  );
+}
+
+
 
     addAndRemoveQty(
       String qty,
@@ -3808,265 +3840,313 @@ buildConvertedPrice(
         totalPrice = totalPrice + promoAmount;
       });
     }
+void checkout() {
+  final cartList = context.read<CartProvider>().cartList;
 
-    checkout() {
-      final List<SectionModel> cartList = context.read<CartProvider>().cartList;
-      print("cartList*****${cartList.length}");
-      deviceHeight = MediaQuery.of(context).size.height;
-      deviceWidth = MediaQuery.of(context).size.width;
-      print("checkdeliverablr--->$deliverable");
-      if (isStorePickUp == "false" &&
-          addressList.isNotEmpty &&
-          !deliverable &&
-          cartList[0].productList![0].productType != 'digital_product') {
-        checkDeliverable(2);
-      }
-      return showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(10),
-            topRight: Radius.circular(10),
-          ),
-        ),
-        builder: (builder) {
-          print("isDelivarable=====>$deliverable");
-          return StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              checkoutState = setState;
-              return SafeArea(
-                bottom: Platform.isAndroid ? false : true,
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.8,
-                  ),
-                  child: Scaffold(
-                    resizeToAvoidBottomInset: false,
-                    body: _isNetworkAvailable
-                        ? cartList.isEmpty
-                            ? cartEmpty(context)
-                            : _isLoading
-                                ? shimmer(context)
-                                : Column(
-                                    children: [
-                                      Expanded(
-                                        child: Stack(
-                                          children: <Widget>[
-                                            SingleChildScrollView(
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.all(10.0),
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    if (cartList[0]
+  // ─── Pre-check deliverability ────────────────────────────────────────────
+  if (isStorePickUp == "false" &&
+      addressList.isNotEmpty &&
+      !deliverable &&
+      cartList[0].productList![0].productType != 'digital_product') {
+    checkDeliverable(2);
+  }
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(10),
+        topRight: Radius.circular(10),
+      ),
+    ),
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          checkoutState = setState;
+
+          return SafeArea(
+            bottom: Platform.isAndroid ? false : true,
+            child: SizedBox(                                   // ← reserve 80 %
+              height: MediaQuery.of(context).size.height * 0.8,
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                resizeToAvoidBottomInset: false,
+
+                // ─── BODY ────────────────────────────────────────────────
+                body: _isNetworkAvailable
+                    ? cartList.isEmpty
+                        ? cartEmpty(context)
+                        : _isLoading
+                            ? shimmer(context)
+                            : Column(
+                                children: [
+                                  // ── Scrollable content ──
+                                  Expanded(
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.translucent,
+                                      onTap: () =>
+                                          FocusScope.of(context).unfocus(),
+                                      child: SingleChildScrollView(
+                                        keyboardDismissBehavior:
+                                            ScrollViewKeyboardDismissBehavior
+                                                .onDrag,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(10.0),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (cartList[0]
+                                                      .productList![0]
+                                                      .productType !=
+                                                  'digital_product')
+                                                (IS_LOCAL_PICKUP != "1" ||
+                                                        isStorePickUp !=
+                                                            "true")
+                                                    ? address()
+                                                    : const SizedBox.shrink()
+                                              else
+                                                const SizedBox.shrink(),
+                                              attachPrescriptionImages(
+                                                  cartList),
+                                              payment(),
+                                              cartItems(cartList),
+                                              orderSummary(cartList),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // ── Bottom bar ──
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 20),
+                                    child: Container(
+                                      color: Theme.of(context).colorScheme.white,
+                                      child: Row(
+                                        children: [
+                                          Padding(
+                                            padding:
+                                                const EdgeInsetsDirectional
+                                                    .only(start: 15),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                buildTotalPriceWidget(context),
+                                                Text(
+                                                  "${cartList.length} ${getTranslated(context, 'ITEMS') ?? 'Items'}",
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(right: 10),
+                                            child: SimBtn(
+                                              height: 35,
+                                              width: 0.4,
+                                              title: getTranslated(
+                                                  context, 'PLACE_ORDER'),
+                                              onBtnSelected: () async {
+                                                // Reset flag so UI shows loader
+                                                checkoutState?.call(() {
+                                                  _placeOrder = false;
+                                                });
+
+                                                final selectedMosque = context
+                                                    .read<MosqueProvider>()
+                                                    .selectedMosque;
+
+                                                // ── 1. Validate mosque ──
+                                                if (selectedMosque == null) {
+                                                  await Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          const QatarMosques(
+                                                              isFromCheckout:
+                                                                  true),
+                                                    ),
+                                                  );
+                                                  checkoutState?.call(() {
+                                                    _placeOrder = true;
+                                                  });
+                                                  return;
+                                                }
+
+                                                // ── 2. Validate payment ──
+                                                if (paymentMethod == null ||
+                                                    paymentMethod!.isEmpty) {
+                                                  msg = getTranslated(context,
+                                                      'payWarning');
+                                                  await Navigator.pushNamed(
+                                                    context,
+                                                    Routers.paymentScreen,
+                                                    arguments: {
+                                                      "update": updateCheckout,
+                                                      "msg": msg,
+                                                    },
+                                                  );
+                                                  if (cartList[0]
+                                                              .productList![0]
+                                                              .productType !=
+                                                          'digital_product' &&
+                                                      isStorePickUp == "false" &&
+                                                      !deliverable) {
+                                                    await checkDeliverable(2,
+                                                        showErrorMessage:
+                                                            false);
+                                                  }
+                                                  checkoutState?.call(() {
+                                                    _placeOrder = true;
+                                                  });
+                                                  return;
+                                                }
+
+                                                // ── 3. Validate date ──
+                                                if (cartList[0]
                                                             .productList![0]
                                                             .productType !=
-                                                        'digital_product')
-                                                      IS_LOCAL_PICKUP != "1" ||
-                                                              isStorePickUp !=
-                                                                  "true"
-                                                          ? address()
-                                                          : const SizedBox
-                                                              .shrink()
-                                                    else
-                                                      const SizedBox.shrink(),
-                                                    attachPrescriptionImages(
-                                                      cartList,
-                                                    ),
-                                                    payment(),
-                                                    cartItems(cartList),
-                                                    orderSummary(cartList),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            Selector<CartProvider, bool>(
-                                              builder: (context, data, child) {
-                                                return showCircularProgress(
-                                                  context,
-                                                  data,
-                                                  Theme.of(context)
-                                                      .colorScheme
-                                                      .primarytheme,
-                                                );
-                                              },
-                                              selector: (_, provider) =>
-                                                  provider.isProgress,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Padding(
-    padding: const EdgeInsets.only(bottom: 20.0), 
-                                  child:   Container(
-                                        color:
-                                            Theme.of(context).colorScheme.white,
-                                        child: Row(
-                                          children: <Widget>[
-                                            Padding(
-                                              padding: const EdgeInsetsDirectional
-                                                  .only(start: 15.0),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  buildTotalPriceWidget(context),
-
-                                                  Text(
-                                                    "${cartList.length} Items",
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  right: 10.0,
-                                                ),
-                                                child: SimBtn(
-                                                  height: 35,
-                                                  width: 0.4,
-                                                  title: getTranslated(
+                                                        'digital_product' &&
+                                                    isTimeSlot! &&
+                                                    (isLocalDelCharge == null ||
+                                                        isLocalDelCharge!) &&
+                                                    int.parse(allowDay!) > 0 &&
+                                                    (selDate == null ||
+                                                        selDate!.isEmpty) &&
+                                                    IS_LOCAL_ON != '0') {
+                                                  msg = getTranslated(
+                                                      context, 'dateWarning');
+                                                  await Navigator.pushNamed(
                                                     context,
-                                                    'PLACE_ORDER',
-                                                  ),onBtnSelected: () async {
-  // Reset the place order flag
-  checkoutState?.call(() {
-    _placeOrder = false;
-  });
+                                                    Routers.paymentScreen,
+                                                    arguments: {
+                                                      "update": updateCheckout,
+                                                      "msg": msg,
+                                                    },
+                                                  );
+                                                  if (cartList[0]
+                                                              .productList![0]
+                                                              .productType !=
+                                                          'digital_product' &&
+                                                      isStorePickUp == "false" &&
+                                                      !deliverable) {
+                                                    await checkDeliverable(2,
+                                                        showErrorMessage:
+                                                            false);
+                                                  }
+                                                  checkoutState?.call(() {
+                                                    _placeOrder = true;
+                                                  });
+                                                  return;
+                                                }
 
-  // Validate payment method selection
-  if (paymentMethod == null || paymentMethod!.isEmpty) {
-    msg = getTranslated(context, 'payWarning');
-    Navigator.pushNamed(
-      context,
-      Routers.paymentScreen,
-      arguments: {
-        "update": updateCheckout,
-        "msg": msg,
-      },
-    ).then((value) async {
-      if (cartList[0].productList![0].productType != 'digital_product' &&
-          isStorePickUp == "false" &&
-          !deliverable) {
-        await checkDeliverable(2, showErrorMessage: false);
-      }
-      checkoutState?.call(() {
-        _placeOrder = true;
-      });
-    });
-    return;
-  }
+                                                // ── 4. Validate time ──
+                                                if (cartList[0]
+                                                            .productList![0]
+                                                            .productType !=
+                                                        'digital_product' &&
+                                                    isTimeSlot! &&
+                                                    (isLocalDelCharge == null ||
+                                                        isLocalDelCharge!) &&
+                                                    timeSlotList.isNotEmpty &&
+                                                    (selTime == null ||
+                                                        selTime!.isEmpty) &&
+                                                    IS_LOCAL_ON != '0') {
+                                                  msg = getTranslated(
+                                                      context, 'timeWarning');
+                                                  await Navigator.pushNamed(
+                                                    context,
+                                                    Routers.paymentScreen,
+                                                    arguments: {
+                                                      "update": updateCheckout,
+                                                      "msg": msg,
+                                                    },
+                                                  );
+                                                  if (cartList[0]
+                                                              .productList![0]
+                                                              .productType !=
+                                                          'digital_product' &&
+                                                      isStorePickUp == "false" &&
+                                                      !deliverable) {
+                                                    await checkDeliverable(2,
+                                                        showErrorMessage:
+                                                            false);
+                                                  }
+                                                  checkoutState?.call(() {
+                                                    _placeOrder = true;
+                                                  });
+                                                  return;
+                                                }
 
-  // Validate delivery date selection
-  if (cartList[0].productList![0].productType != 'digital_product' &&
-      isTimeSlot! &&
-      (isLocalDelCharge == null || isLocalDelCharge!) &&
-      int.parse(allowDay!) > 0 &&
-      (selDate == null || selDate!.isEmpty) &&
-      IS_LOCAL_ON != '0') {
-    msg = getTranslated(context, 'dateWarning');
-    Navigator.pushNamed(
-      context,
-      Routers.paymentScreen,
-      arguments: {
-        "update": updateCheckout,
-        "msg": msg,
-      },
-    ).then((value) async {
-      if (cartList[0].productList![0].productType != 'digital_product' &&
-          isStorePickUp == "false" &&
-          !deliverable) {
-        await checkDeliverable(2, showErrorMessage: false);
-      }
-      checkoutState?.call(() {
-        _placeOrder = true;
-      });
-    });
-    return;
-  }
+                                                // ── 5. Min-cart amount ──
+                                                if (double.parse(
+                                                        MIN_ALLOW_CART_AMT!) >
+                                                    originalPrice) {
+                                                  setSnackbar(
+                                                    getTranslated(context,
+                                                        'MIN_CART_AMT')!,
+                                                    context,
+                                                  );
+                                                  return;
+                                                }
 
-  // Validate delivery time selection
-  if (cartList[0].productList![0].productType != 'digital_product' &&
-      isTimeSlot! &&
-      (isLocalDelCharge == null || isLocalDelCharge!) &&
-      timeSlotList.isNotEmpty &&
-      (selTime == null || selTime!.isEmpty) &&
-      IS_LOCAL_ON != '0') {
-    msg = getTranslated(context, 'timeWarning');
-    Navigator.pushNamed(
-      context,
-      Routers.paymentScreen,
-      arguments: {
-        "update": updateCheckout,
-        "msg": msg,
-      },
-    ).then((value) async {
-      if (cartList[0].productList![0].productType != 'digital_product' &&
-          isStorePickUp == "false" &&
-          !deliverable) {
-        await checkDeliverable(2, showErrorMessage: false);
-      }
-      checkoutState?.call(() {
-        _placeOrder = true;
-      });
-    });
-    return;
-  }
+                                                // ── 6. Deliverability ──
+                                                if (cartList[0]
+                                                            .productList![0]
+                                                            .productType !=
+                                                        'digital_product' &&
+                                                    isStorePickUp == "false" &&
+                                                    !deliverable) {
+                                                  checkDeliverable(1);
+                                                  return;
+                                                }
 
-  // Validate minimum cart amount
-  if (double.parse(MIN_ALLOW_CART_AMT!) > originalPrice) {
-    setSnackbar(getTranslated(context, 'MIN_CART_AMT')!, context);
-    return;
-  }
-
-  // Validate deliverability
-  if (cartList[0].productList![0].productType != 'digital_product' &&
-      isStorePickUp == "false" &&
-      !deliverable) {
-    checkDeliverable(1);
-    return;
-  }
-
-  // Proceed with order confirmation
-  if (confDia) {
-    if (!context.read<CartProvider>().isProgress) {
-      confirmDialog(cartList);
-      setState(() {
-        confDia = false;
-      });
-    }
-  }
-}
-),
-                                              ),
-                                          ],
-                                        ),
+                                                // ── 7. Confirmation ──
+                                                if (confDia) {
+                                                  if (!context
+                                                      .read<CartProvider>()
+                                                      .isProgress) {
+                                                    confirmDialog(cartList);
+                                                    setState(() {
+                                                      confDia = false;
+                                                    });
+                                                  }
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                )],
-                                  )
-                        : noInternet(
-                            context,
-                            buttonController: buttonController,
-                            buttonSqueezeanimation: buttonSqueezeanimation,
-                            onButtonClicked: (internetAvailable) {
-                              _isNetworkAvailable = internetAvailable;
-                              callApi();
-                              setState(() {});
-                            },
-                            onNetworkNavigationWidget: super.widget,
-                          ),
-                  ),
-                ),
-              );
-            },
+                                    ),
+                                  ),
+                                ],
+                              )
+                    : noInternet(
+                        context,
+                        buttonController: buttonController,
+                        buttonSqueezeanimation: buttonSqueezeanimation,
+                        onButtonClicked: (avail) {
+                          _isNetworkAvailable = avail;
+                          callApi();
+                          setState(() {});
+                        },
+                        onNetworkNavigationWidget: super.widget,
+                      ),
+              ),
+            ),
           );
         },
       );
-    }
+    },
+  );
+}
+
+
+
 
     
 Widget buildTotalPriceWidget(BuildContext context) {
@@ -4139,62 +4219,7 @@ Widget buildTotalPriceWidget(BuildContext context) {
         USER_ID: context.read<UserProvider>().userId,
         ORDER_ID: orderId,
       };
-      try {
-        apiBaseHelper.postAPICall(getPytmChecsumkApi, parameter).then(
-          (getdata) async {
-            final bool error = getdata["error"];
-            print('error**********$error');
-            if (!error) {
-              final String txnToken = getdata["txn_token"];
-              print('txn token**********$txnToken');
-              setState(() {
-              });
-              final response = await AllInOneSdk.startTransaction(
-                paytmMerId!,
-                orderId,
-                totalPrice as String,
-                txnToken,
-                callBackUrl,
-                payTesting,
-                false,
-              );
-              if (response!['errorCode'] == null) {
-                if (response['STATUS'] == 'TXN_SUCCESS') {
-                  await updateOrderStatus(orderID: orderId, status: PLACED);
-                  addTransaction(response['TXNID'], orderId, SUCCESS, msg, true);
-                } else {
-                  deleteOrders(orderId);
-                }
-                setSnackbar(response['STATUS'], context);
-              } else {
-                final String paymentResponse = response['RESPMSG'];
-                if (response['response'] != null) {
-                  addTransaction(
-                    response['TXNID'],
-                    orderId,
-                    response['STATUS'] ?? '',
-                    paymentResponse,
-                    false,
-                  );
-                }
-                setSnackbar(paymentResponse, context);
-              }
-              print('paytm response***************$response');
-            } else {
-              checkoutState?.call(() {
-                _placeOrder = true;
-              });
-              context.read<CartProvider>().setProgress(false);
-              setSnackbar(getdata["message"], context);
-            }
-          },
-          onError: (error) {
-            setSnackbar(error.toString(), context);
-          },
-        );
-      } catch (e) {
-        print(e);
-      }
+      
     }
 
     
@@ -4298,12 +4323,25 @@ Future<void> placeOrder(String? tranId) async {
   request.fields[ISWALLETBALUSED] = isUseWallet! ? "1" : "0";
   request.fields[WALLET_BAL_USED] = usedBalance.toString();
   request.fields[ORDER_NOTE] = noteC.text;
-  
+  // Add mosque details to the request
+final MosqueModel? selectedMosque =
+    context.read<MosqueProvider>().selectedMosque;
+
+if (selectedMosque != null) {
+  request.fields['mosque_id']         = selectedMosque.id ?? '0';          // <- key MUST be mosque_id
+  request.fields['mosque_name']       = selectedMosque.name ?? '';
+  request.fields['mosque_name_ar']    = selectedMosque.nameAr ?? '';
+  request.fields['mosque_address']    = selectedMosque.address ?? '';
+  request.fields['mosque_address_ar'] = selectedMosque.addressAr ?? '';
+  request.fields['mosque_latitude']   = '${selectedMosque.latitude ?? ''}';
+  request.fields['mosque_longitude']  = '${selectedMosque.longitude ?? ''}';
+} 
+
+
   if (IS_LOCAL_PICKUP != "1" || isStorePickUp != "true") {
     request.fields[DEL_CHARGE] = deliveryCharge.toString();
   }
   
-  final selectedMosque = context.read<MosqueProvider>().selectedMosque;
   request.fields[ADD_ID] = selectedMosque != null ? selectedMosque.id! : "999";
   if (IS_LOCAL_PICKUP == "1") {
     request.fields[LOCAL_PICKUP] = isStorePickUp == "true" ? "1" : "0";
@@ -5059,165 +5097,143 @@ void setSnackbar(String message, BuildContext context) {
 // mobileController.text = context.read<UserProvider>().mobile ?? '';
 
 Widget address() {
-  final selectedMosque = context.read<MosqueProvider>().selectedMosque;
+  final selectedMosque = context.watch<MosqueProvider>().selectedMosque;
+  final isArabic       = Localizations.localeOf(context).languageCode == 'ar';
+
+  final displayName = selectedMosque == null
+      ? null
+      : isArabic
+          ? (selectedMosque.nameAr?.isNotEmpty ?? false
+              ? selectedMosque.nameAr!
+              : selectedMosque.name)
+          : selectedMosque.name;
+
+  final displayAddress = selectedMosque == null
+      ? null
+      : isArabic
+          ? (selectedMosque.addressAr?.isNotEmpty ?? false
+              ? selectedMosque.addressAr!
+              : getTranslated(context, 'NO_ADDRESS')!)
+          : (selectedMosque.address?.isNotEmpty ?? false
+              ? selectedMosque.address!
+              : getTranslated(context, 'NO_ADDRESS')!);
 
   return Card(
     elevation: 1,
+    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     child: Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          /// ── Header ──────────────────────────────────────────────────
           Row(
             children: [
-              const Icon(Icons.location_on),
+              Icon(Icons.location_on,
+                  color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
-              Text(
-                getTranslated(context, 'SHIPPING_DETAIL') ?? 'Delivery Address',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.fontColor,
+              Expanded(
+                child: Text(
+                  getTranslated(context, 'SHIPPING_DETAIL') ??
+                      'Delivery Address',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ),
             ],
           ),
-          const Divider(),
+          const SizedBox(height: 12),
+          const Divider(height: 0),
 
-          // If a Mosque is already chosen, display its info + "Change".
-          if (selectedMosque != null)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(start: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          selectedMosque.name?.isNotEmpty == true
-                              ? selectedMosque.name!
-                              : "Mosque at (${selectedMosque.latitude}, ${selectedMosque.longitude})",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text(
-                            getTranslated(context, 'CHANGE') ?? 'CHANGE',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primarytheme,
-                            ),
-                          ),
-                        ),
-                        onTap: () async {
-                          // When "Change" is tapped, open QatarMosques in checkout mode:
-                          final mosque = await Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => BlocProvider<FetchMosquesCubit>(
-      create: (context) => FetchMosquesCubit()..fetchMosques(),
-      child: QatarMosques(isFromCheckout: true),
-    ),
-  ),
-);
-
-                          if (mosque != null && mosque is MosqueModel) {
-                            context.read<MosqueProvider>().setSelectedMosque(mosque);
-                            checkDeliverable(2);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  Text(
-                    selectedMosque.address?.isNotEmpty == true
-                        ? selectedMosque.address!
-                        : "Mosque at (${selectedMosque.latitude}, ${selectedMosque.longitude})",
-                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                          color: Theme.of(context).colorScheme.lightBlack,
-                        ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    "Lat: ${selectedMosque.latitude}, Lng: ${selectedMosque.longitude}",
-                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                          color: Theme.of(context).colorScheme.lightBlack,
-                        ),
-                  ),
-                ],
-              ),
-            )
-          else
-            // If no mosque selected, let user pick one
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-  Text(
-    getTranslated(context, 'NO_MOSQUE_SELECTED') ?? 'No Mosque Selected',
-    style: TextStyle(
-      fontWeight: FontWeight.bold,
-      color: Theme.of(context).colorScheme.primary,
-    ),
-  ),
-  const SizedBox(height: 4),
-  Text(
-    getTranslated(context, 'MOSQUE_NOT_SELECTED_MSG') 
-      ?? 'If you do not select a mosque, your product will be delivered to our designated Most Needed Mosque in Qatar.',
-    style: Theme.of(context).textTheme.bodySmall!.copyWith(
-      color: Theme.of(context).colorScheme.lightBlack,
-    ),
-  ),
-
-
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final mosque = await Navigator.pushNamed(
-                        context,
-                        Routers.qatarMosquesScreen,
-                        arguments: true, // or pass a param that indicates checkout
-                      );
-                      if (mosque != null && mosque is MosqueModel) {
-                        context.read<MosqueProvider>().setSelectedMosque(mosque);
-                        checkDeliverable(2);
-                      }
-                    },
-                    child: Text(
-                      getTranslated(context, 'SELECT_MOSQUE') ?? "Select Mosque",
-                    ),
-                  ),
-                ],
+          /// ── Mosque selector / card ─────────────────────────────────
+          const SizedBox(height: 12),
+          if (selectedMosque == null) ...[
+            FractionallySizedBox(
+              widthFactor: 0.85,
+              child: SimBtn(
+                height: 44,
+                width: 1, // SimBtn uses the fractionally sized width
+                title: getTranslated(context, 'SELECT_MOSQUE_BTN') ??
+                    'Select a Mosque for Delivery',
+                onBtnSelected: _navigateToMosqueSelection,
               ),
             ),
-
-          // Mobile Number Input Container added below the address section:
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.white,
-                borderRadius: BorderRadius.circular(5.0),
-                border: Border.all(
-                  color: Colors.grey.shade400,
+            const SizedBox(height: 6),
+            Text(
+              getTranslated(context, 'MOSQUE_SELECTION_MANDATORY') ??
+                  'Mosque selection is required to proceed.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ] else ...[
+            Material(
+              elevation: 0,
+              borderRadius: BorderRadius.circular(8),
+              color: Theme.of(context).colorScheme.surfaceVariant,
+              child: ListTile(
+                dense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                leading: Icon(Icons.mosque_outlined,
+                    color: Theme.of(context).colorScheme.primarytheme),
+                title: Text(
+                  displayName ?? 'N/A',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  displayAddress ?? 'N/A',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(height: 1.3),
+                ),
+                trailing: TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor:
+                        Theme.of(context).colorScheme.primarytheme,
+                  ),
+                  onPressed: _navigateToMosqueSelection,
+                  child: Text(
+                    getTranslated(context, 'CHANGE') ?? 'Change',
+                  ),
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              child: TextField(
-                controller: mobileController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: getTranslated(context, 'ENTER_MOBILE_NUMBER') ?? 'Enter mobile number',
+            ),
+          ],
 
-                ),
+          /// ── Mobile number field ────────────────────────────────────
+          const SizedBox(height: 20),
+          TextField(
+            controller: mobileController,
+            keyboardType:
+                Platform.isIOS ? TextInputType.number : TextInputType.phone,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            textInputAction: TextInputAction.done,
+            onEditingComplete: () => FocusScope.of(context).unfocus(),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: InputDecoration(
+              labelText: getTranslated(context, 'MOBILE_NUMBER_LABEL') ??
+                  'Mobile Number',
+              hintText: getTranslated(context, 'ENTER_MOBILE_NUMBER') ??
+                  'Enter mobile number',
+              prefixIcon: Icon(Icons.phone_android,
+                  color: Theme.of(context).colorScheme.primary),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.check),
+                onPressed: () => FocusScope.of(context).unfocus(),
               ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             ),
           ),
         ],
@@ -5228,6 +5244,92 @@ Widget address() {
 
 
 
+Future<void> _navigateToMosqueSelection() async {
+  final result = await Navigator.push<MosqueModel>(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const QatarMosques(isFromCheckout: true),
+    ),
+  );
+
+  if (result != null && mounted) {
+    setState(() {
+      selectedMosque = result;
+      context.read<MosqueProvider>().setSelectedMosque(result);
+      // Optional: Reset delivery charge or other address-related fields if needed
+      // deliveryCharge = 0; 
+    });
+    // Update checkout sheet state if it's open
+    checkoutState?.call(() {});
+  }
+}
+Widget _buildMosqueSelectionSection() {
+  final isArabic = Localizations.localeOf(context).languageCode == "ar";
+  final displayName = selectedMosque != null
+      ? (isArabic
+          ? (selectedMosque!.nameAr?.isNotEmpty ?? false ? selectedMosque!.nameAr! : selectedMosque!.name)
+          : selectedMosque!.name)
+      : null;
+  final displayAddress = selectedMosque != null
+      ? (isArabic
+          ? (selectedMosque!.addressAr?.isNotEmpty ?? false ? selectedMosque!.addressAr! : getTranslated(context, "NO_ADDRESS")!)
+          : (selectedMosque!.address?.isNotEmpty ?? false ? selectedMosque!.address! : getTranslated(context, "NO_ADDRESS")!))
+      : null;
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          getTranslated(context, 'DELIVERY_MOSQUE') ?? 'Delivery Mosque',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.fontColor,
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 10),
+        selectedMosque == null
+            ? Center(
+                child: AppBtn(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  title: getTranslated(context, 'SELECT_MOSQUE_BTN') ?? 'Select a Mosque for Delivery',
+                  // Removed the 'icon' parameter as it is not defined in the 'AppBtn' widget.
+                  onBtnSelected: _navigateToMosqueSelection,
+                ),
+              )
+            : Card(
+                elevation: 1,
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                child: ListTile(
+                  leading: Icon(Icons.mosque_outlined, color: Theme.of(context).colorScheme.primarytheme),
+                  title: Text(displayName ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(displayAddress ?? 'N/A', maxLines: 2, overflow: TextOverflow.ellipsis),
+                  trailing: TextButton(
+                    child: Text(getTranslated(context, 'CHANGE') ?? 'Change'),
+                    onPressed: _navigateToMosqueSelection,
+                    style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primarytheme),
+                  ),
+                  isThreeLine: true,
+                ),
+              ),
+        const SizedBox(height: 5),
+        if (selectedMosque == null)
+           Padding(
+             padding: const EdgeInsets.only(top: 5.0),
+             child: Center(
+               child: Text(
+                 getTranslated(context, 'MOSQUE_SELECTION_MANDATORY') ?? 'Mosque selection is required to proceed.',
+                 style: TextStyle(color: const Color.fromARGB(255, 30, 227, 201), fontSize: 12),
+                 textAlign: TextAlign.center,
+               ),
+             ),
+           ),
+      ],
+    ),
+  );
+}
 
 
 

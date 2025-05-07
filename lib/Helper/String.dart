@@ -58,6 +58,8 @@ final Uri setBankProofApi = Uri.parse('${baseUrl}send_bank_transfer_proof');
 final Uri checkDeliverableApi = Uri.parse("${baseUrl}is_product_delivarable");
 final Uri checkCartDelApi =
     Uri.parse('${baseUrl}check_cart_products_delivarable');
+final Uri getTranslationsApi = Uri.parse('${baseUrl}get_translations');
+
 final Uri getPromoCodeApi = Uri.parse('${baseUrl}get_promo_codes');
 final Uri setProductFaqsApi = Uri.parse('${baseUrl}add_product_faqs');
 final Uri getProductFaqsApi = Uri.parse('${baseUrl}get_product_faqs');
@@ -103,6 +105,7 @@ const String NAME = 'name';
 const String SUBTITLE = 'subtitle';
 const String TAX = 'tax';
 const String SLUG = 'slug';
+
 // In String.dart
 const String TRANS_ID = 'transaction_id'; // Adjust to match your backend's expected key
 const String TITLE = 'title';
